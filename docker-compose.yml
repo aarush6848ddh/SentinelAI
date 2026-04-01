@@ -4,9 +4,8 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/incidentai
-      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
     depends_on:
       - db
       - redis
