@@ -9,6 +9,8 @@ class RepositoryBase(BaseModel):
     url: str
     default_branch: str = "main"
 
+# Inherit from RepositoryBase for create and response models
+# This allows us to reuse the common fields and add additional fields for responses if needed
 class RepositoryCreate(RepositoryBase):
     pass
 
