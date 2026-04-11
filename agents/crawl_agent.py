@@ -31,6 +31,7 @@ def run_crawl(crawl_job_id: int, repository_id: int):
             issues = analyze_file(path, content)
             all_issues.extend(issues)
 
+        db_tool.clear_issues(repository_id)
         if all_issues:
             db_tool.save_issues_bulk(repository_id, all_issues)
         

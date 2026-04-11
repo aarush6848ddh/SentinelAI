@@ -31,6 +31,10 @@ class DBTool:
         self.db.add(issue)
         self.db.commit()
     
+    def clear_issues(self, repository_id: int):
+        self.db.query(Issue).filter(Issue.repository_id == repository_id).delete()
+        self.db.commit()
+
     def save_issues_bulk(self, repository_id: int, issues: list[dict]):
         issue_objects = [
             Issue(

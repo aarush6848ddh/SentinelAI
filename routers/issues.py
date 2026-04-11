@@ -37,6 +37,24 @@ def create_issue(issue: IssueCreate, db: Session = Depends(get_db)):
     return new_issue
 
 @router.get("/", response_model=List[IssueResponse])
-def get_issues(db: Session = Depends(get_db)):
-    issues = db.query(Issue).all()
+def get_issues(repository_id: int = None, severity: str = None, category: str = None, db: Session = Depends(get_db)):
+    query = db.query(Issue)
+    
+    if repository_id:
+        query = query.filter(Issue.repository_id == repository_id)
+    
+    if severity:
+        query = query.filter(Issue.severity == severity)
+    
+    if category:
+        query = query.filter(Issue.category == category)
+    
+    issues = query.all()
     return issues
+
+@router.get("/{issue_id}", response_model=IssueResponse)
+def get_issue(issue_id: int, db: Session = Depends(get_db)):
+    issue = db.query(Issue).filter(Issue.id == issue_id).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    return issue
