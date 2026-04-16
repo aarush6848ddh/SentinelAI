@@ -1,6 +1,7 @@
 from datetime import datetime
 from models.crawl_job import CrawlJob, CrawlStatus
 from models.issue import Issue
+from tools.embedding_tool import generate_embedding
 
 class DBTool:
     def __init__(self, db_session):
@@ -44,7 +45,8 @@ class DBTool:
                 severity=issue["severity"],
                 category=issue["category"],
                 file_path=issue.get("file_path"),
-                line_number=issue.get("line_number")
+                line_number=issue.get("line_number"),
+                embedding=generate_embedding(issue["title"] + ". " + issue["description"])
             )
             for issue in issues
         ]

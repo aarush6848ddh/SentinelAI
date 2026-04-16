@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   ShieldCheck,
   GitFork,
   RefreshCw,
   Plus,
-  CheckCircle2,
-  XCircle,
-  Clock,
   Loader2,
   Lock,
   Globe,
@@ -60,14 +56,16 @@ function CrawlDot({ status }: { status: string }) {
   return <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 shrink-0" />;
 }
 
-export default function Sidebar({ activeRepoId }: { activeRepoId?: number }) {
-  const pathname = usePathname();
+export default function Sidebar() {
   const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
   const [sentinelRepos, setSentinelRepos] = useState<SentinelRepo[]>([]);
   const [crawlJobs, setCrawlJobs] = useState<CrawlJob[]>([]);
   const [issueCounts, setIssueCounts] = useState<Record<number, IssueCounts>>({});
   const [adding, setAdding] = useState<number | null>(null);
   const [crawling, setCrawling] = useState<number | null>(null);
+
+  // track previous crawl jobs in a ref so polling can detect transitions
+  const crawlJobsRef = useRef<CrawlJob[]>([]);
 
   async function load() {
     const [gh, sr, cj] = await Promise.all([
@@ -78,8 +76,8 @@ export default function Sidebar({ activeRepoId }: { activeRepoId?: number }) {
     setGithubRepos(gh);
     setSentinelRepos(sr);
     setCrawlJobs(cj);
+    crawlJobsRef.current = cj;
 
-    // Load issue counts for each tracked repo
     const counts: Record<number, IssueCounts> = {};
     await Promise.all(
       sr.map(async (repo: SentinelRepo) => {
@@ -95,7 +93,27 @@ export default function Sidebar({ activeRepoId }: { activeRepoId?: number }) {
     setIssueCounts(counts);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+
+    // poll crawl jobs every 3s — when a running job completes, do a full reload
+    const interval = setInterval(async () => {
+      const jobs = await getCrawlJobs();
+      const wasRunning = crawlJobsRef.current.some((j) => j.status === "running");
+      const isRunning = jobs.some((j: CrawlJob) => j.status === "running");
+
+      setCrawlJobs(jobs);
+      crawlJobsRef.current = jobs;
+
+      // crawl just finished — reload issue counts
+      if (wasRunning && !isRunning) {
+        load();
+        setCrawling(null);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   function latestJob(sentinelId: number) {
     return crawlJobs
@@ -123,36 +141,18 @@ export default function Sidebar({ activeRepoId }: { activeRepoId?: number }) {
     e.preventDefault();
     setCrawling(sentinelId);
     await triggerCrawl(sentinelId);
-    await load();
-    setCrawling(null);
+    // don't await completion — polling will detect when it finishes
   }
-
-  const isHome = pathname === "/";
 
   return (
     <aside className="w-56 shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col h-screen sticky top-0 overflow-hidden">
       {/* Logo */}
       <div className="px-4 py-4 border-b border-zinc-800">
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href="/" className="flex items-center gap-2.5">
           <div className="w-6 h-6 bg-indigo-600 rounded-md flex items-center justify-center">
             <ShieldCheck size={13} className="text-white" />
           </div>
           <span className="text-sm font-semibold text-zinc-100">SentinelAI</span>
-        </Link>
-      </div>
-
-      {/* Nav */}
-      <div className="px-2 py-3 border-b border-zinc-800">
-        <Link
-          href="/"
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
-            isHome
-              ? "bg-zinc-800 text-zinc-100"
-              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
-          }`}
-        >
-          <ShieldCheck size={14} />
-          Assistant
         </Link>
       </div>
 
@@ -170,24 +170,17 @@ export default function Sidebar({ activeRepoId }: { activeRepoId?: number }) {
               const sentinel = sentinelRepoFor(repo.id);
               const job = sentinel ? latestJob(sentinel.id) : null;
               const counts = sentinel ? issueCounts[sentinel.id] : null;
-              const isActive = sentinel?.id === activeRepoId;
               const name = repo.full_name.split("/")[1];
+              const isCurrentlyCrawling = sentinel && crawling === sentinel.id;
 
               return (
                 <div key={repo.id}>
                   {sentinel ? (
-                    <Link
-                      href={`/repos/${sentinel.id}`}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors group ${
-                        isActive
-                          ? "bg-zinc-800 text-zinc-100"
-                          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
-                      }`}
-                    >
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md text-zinc-300">
                       <GitFork size={13} className="shrink-0 text-zinc-600" />
                       <span className="truncate flex-1 text-xs">{name}</span>
-                      {job && <CrawlDot status={job.status} />}
-                    </Link>
+                      {job && <CrawlDot status={isCurrentlyCrawling ? "running" : job.status} />}
+                    </div>
                   ) : (
                     <div className="flex items-center gap-2 px-2 py-1.5 rounded-md text-zinc-600 group">
                       {repo.private ? <Lock size={13} className="shrink-0" /> : <Globe size={13} className="shrink-0" />}
@@ -232,11 +225,14 @@ export default function Sidebar({ activeRepoId }: { activeRepoId?: number }) {
                     <div className="pl-7 pb-1">
                       <button
                         onClick={(e) => handleCrawl(e, sentinel.id)}
-                        disabled={crawling === sentinel.id}
-                        className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors"
+                        disabled={isCurrentlyCrawling || job?.status === "running"}
+                        className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-zinc-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
-                        <RefreshCw size={10} className={crawling === sentinel.id ? "animate-spin" : ""} />
-                        {crawling === sentinel.id ? "Running…" : "Run crawl"}
+                        <RefreshCw
+                          size={10}
+                          className={(isCurrentlyCrawling || job?.status === "running") ? "animate-spin" : ""}
+                        />
+                        {(isCurrentlyCrawling || job?.status === "running") ? "Running…" : "Run crawl"}
                       </button>
                     </div>
                   )}

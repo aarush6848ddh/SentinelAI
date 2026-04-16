@@ -2,12 +2,13 @@ import os
 import json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from groq import Groq
 from database import get_db
 from models.issue import Issue
 from models.repository import Repository
+from tools.embedding_tool import generate_embedding
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -96,22 +97,26 @@ class GeneralChatRequest(BaseModel):
 
 @router.post("/general/stream")
 def chat_general_stream(request: GeneralChatRequest, db: Session = Depends(get_db)):
-    repos = db.query(Repository).all()
+    
+    query_embedding = generate_embedding(request.message)
+
+    relevant_issues = (
+        db.query(Issue)
+        .options(joinedload(Issue.repository))
+        .filter(Issue.embedding.isnot(None))
+        .order_by(Issue.embedding.cosine_distance(query_embedding))
+        .limit(5)
+        .all()
+    )
 
     repo_context = ""
-    for repo in repos:
-        issues = db.query(Issue).filter(Issue.repository_id == repo.id).all()
-        if not issues:
-            repo_context += f"\n\n### {repo.full_name}\nNo issues found yet."
-            continue
-        repo_context += f"\n\n### {repo.full_name}\n"
-        for issue in issues:
-            repo_context += (
-                f"- [{issue.severity.value.upper()}] {issue.title} "
-                f"(category: {issue.category.value}, file: {issue.file_path}"
-                f"{f', line {issue.line_number}' if issue.line_number else ''}): "
-                f"{issue.description}\n"
-            )
+    for issue in relevant_issues:
+        repo_context += (
+            f"- [repo: {issue.repository.full_name}] [{issue.severity.value.upper()}] {issue.title} "
+            f"(category: {issue.category.value}, file: {issue.file_path}"
+            f"{f', line {issue.line_number}' if issue.line_number else ''}): "
+            f"{issue.description}\n"
+        )
 
     system_prompt = f"""You are SentinelAI, a code security assistant. Your job is to translate technical security findings into clear, human-friendly explanations that help a developer understand exactly what is wrong, why it matters, and how to fix it.
 

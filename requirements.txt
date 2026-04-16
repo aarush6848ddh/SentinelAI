@@ -7,3 +7,5 @@ python-dotenv
 pydantic-settings
 groq
 requests
+pgvector
+sentence-transformers
