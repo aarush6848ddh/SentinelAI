@@ -94,20 +94,38 @@ class GeneralChatRequest(BaseModel):
     message: str
     history: list[dict] = []
 
+def detect_repo(message: str, repos: list[Repository]) -> Repository | None:
+    for repo in repos:
+        if repo.full_name.lower() in message.lower() or repo.full_name.split("/")[1].lower() in message.lower():
+            return repo
+    return None 
+
+
 
 @router.post("/general/stream")
 def chat_general_stream(request: GeneralChatRequest, db: Session = Depends(get_db)):
-    
-    query_embedding = generate_embedding(request.message)
 
-    relevant_issues = (
-        db.query(Issue)
-        .options(joinedload(Issue.repository))
-        .filter(Issue.embedding.isnot(None))
-        .order_by(Issue.embedding.cosine_distance(query_embedding))
-        .limit(5)
-        .all()
-    )
+    repos = db.query(Repository).all()
+
+    matched_repo = detect_repo(request.message, repos)
+    
+    if matched_repo:
+        relevant_issues = (
+            db.query(Issue)
+            .options(joinedload(Issue.repository))
+            .filter(Issue.repository_id == matched_repo.id)
+            .all()
+        )
+    else:
+        query_embedding = generate_embedding(request.message)
+        relevant_issues = (
+            db.query(Issue)
+            .options(joinedload(Issue.repository))
+            .filter(Issue.embedding.isnot(None))
+            .order_by(Issue.embedding.cosine_distance(query_embedding))
+            .limit(5)
+            .all()
+        )
 
     repo_context = ""
     for issue in relevant_issues:

@@ -6,12 +6,15 @@ from models.crawl_job import CrawlStatus
 from models.repository import Repository
 from tools.github_tool import GitHubTool
 from tools.db_tool import DBTool
+from tools.cache_tool import CacheTool
+import hashlib
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 def run_crawl(crawl_job_id: int, repository_id: int):
     db = SessionLocal()
     db_tool = DBTool(db)
+    cache = CacheTool()
 
     try:
         db_tool.update_crawl_job(crawl_job_id, CrawlStatus.running)
