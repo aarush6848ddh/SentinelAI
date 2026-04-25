@@ -209,5 +209,5 @@ During a crawl, the following are automatically skipped:
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string. Use `db` as the host when running in Docker Compose. |
-| `GROQ_API_KEY` | Groq API key for LLM calls during crawl and chat. |
+| `GROQ_API_KEY` | Groq API key for LLM calls during crawl and chat. (Planning to switch to Gemini in the future) |
 | `GITHUB_TOKEN` | GitHub personal access token with repo and user read access. |
