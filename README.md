@@ -21,7 +21,7 @@ An AI-powered code security and quality review tool. Point it at any GitHub repo
 | API | FastAPI + Uvicorn |
 | Database | PostgreSQL 15 + pgvector |
 | ORM | SQLAlchemy |
-| LLM | Groq (LLaMA 3.3 70B) |
+| LLM | Groq (LLaMA 3.3 70B) (Gemini later) |
 | Embeddings | sentence-transformers (all-MiniLM-L6-v2) |
 | Cache | Redis |
 | Frontend | Next.js 16, TypeScript, Tailwind CSS |
