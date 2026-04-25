@@ -9,3 +9,4 @@ groq
 requests
 pgvector
 sentence-transformers
+alembic
