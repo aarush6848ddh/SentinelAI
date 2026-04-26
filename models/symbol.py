@@ -16,6 +16,6 @@ class Symbol(Base):
     signature = Column(Text)
 
     # relationships
-    repository = relationship("Repository", back_populates="symbol")
+    repository = relationship("Repository", back_populates="symbols")
     issues = relationship("Issue", back_populates="symbol")
     
