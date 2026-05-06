@@ -26,5 +26,5 @@ class Repository(Base):
     crawl_jobs = relationship("CrawlJob", back_populates="repository")
     pull_requests = relationship("PullRequest", back_populates="repository")
     issues = relationship("Issue", back_populates="repository")
-
+    symbols = relationship("Symbol", back_populates="repository")
     

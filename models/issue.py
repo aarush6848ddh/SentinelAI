@@ -27,6 +27,7 @@ class Issue(Base):
     id = Column(Integer, primary_key=True, index=True)
     repository_id = Column(Integer, ForeignKey("repositories.id"), nullable=False)
     pull_request_id = Column(Integer, ForeignKey("pull_requests.id"))
+    symbol_id = Column(Integer, ForeignKey("symbols.id"), nullable=True)
     title = Column(String)
     description = Column(String)
     severity = Column(Enum(IssueSeverity), nullable=False)
@@ -40,3 +41,4 @@ class Issue(Base):
     # relationships
     repository = relationship("Repository", back_populates="issues")
     pull_request = relationship("PullRequest", back_populates="issues")
+    symbol = relationship("Symbol", back_populates="issues")
